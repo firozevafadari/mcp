@@ -1,19 +1,25 @@
 """
 Matin — Personal Assistant MCP Server for Muse AI
 Developed by firoze vafadari
-
-Tools:
-  - make_todo_list: turn tasks into a prioritized to-do list
-  - plan_day: create a simple daily schedule from goals
-  - prioritize_tasks: rank tasks by urgency/importance keywords
-  - daily_checkin: summarize what was done and plan tomorrow
 """
 import os
 
-try:
-    from mcp.server.fastmcp import FastMCP
-except ImportError:
-    raise SystemExit("Missing dependency. Run: pip install -r requirements.txt")
+# Support both mcp v1 (mcp.server.fastmcp) and v2 (fastmcp package)
+FastMCP = None
+_last_error = None
+for _import_path in ("mcp.server.fastmcp", "fastmcp"):
+    try:
+        if _import_path == "mcp.server.fastmcp":
+            from mcp.server.fastmcp import FastMCP as _F
+        else:
+            from fastmcp import FastMCP as _F
+        FastMCP = _F
+        break
+    except ImportError as e:
+        _last_error = e
+
+if FastMCP is None:
+    raise SystemExit(f"Missing dependency. Run: pip install -r requirements.txt (import error: {_last_error})")
 
 PORT = int(os.environ.get("PORT", "8000"))
 
@@ -24,7 +30,6 @@ except TypeError:
 
 
 def _parse_tasks(text: str) -> list[str]:
-    """Split user text by newline, comma, or semicolon into clean tasks."""
     if not text:
         return []
     parts = []
@@ -132,5 +137,9 @@ def daily_checkin(completed: str, tomorrow_goals: str = "") -> str:
 
 
 if __name__ == "__main__":
-    # Streamable HTTP transport — endpoint will be /mcp
-    mcp.run(transport="streamable-http")
+    print("Starting Matin MCP server...", flush=True)
+    try:
+        mcp.run(transport="streamable-http")
+    except Exception:
+        # fastmcp v2 uses "http" instead of "streamable-http"
+        mcp.run(transport="http")
